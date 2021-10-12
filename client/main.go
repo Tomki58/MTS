@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
@@ -30,4 +32,9 @@ func main() {
 		log.Fatal(err)
 	}
 	defer response.Body.Close()
+	data, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(data))
 }

@@ -4,13 +4,19 @@ import (
 	"bytes"
 	"net/http"
 	"os"
-	"time"
+
+	"MTS/auth/httpserver/cookies"
 
 	"github.com/golang-jwt/jwt"
 )
 
 type BasicAuthorizator struct {
 	credentials map[string]string
+}
+
+type MyClaims struct {
+	jwt.StandardClaims
+	Username string `json:"username"`
 }
 
 func New(pathToConfig string) (*BasicAuthorizator, error) {
@@ -46,43 +52,19 @@ func (b *BasicAuthorizator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: change the response on sending JWT-token to client
-	// Generating access cookie
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
-		"username": username,
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, MyClaims{
+		Username: username,
 	})
-	accessTokenString, err := accessToken.SigningString()
 
+	cookies, err := cookies.CreateCookies(*token)
 	if err != nil {
-		http.Error(w, "Can't generate JWT-token", http.StatusInternalServerError)
-		return
-	}
-	accessCookie := http.Cookie{
-		Name: "access",
-		// login as jwt token
-		Value:    accessTokenString,
-		MaxAge:   int(time.Minute),
-		HttpOnly: true,
-	}
-
-	// TODO: generate refresh cookie
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
-		"username": username,
-	})
-	refreshTokenString, err := refreshToken.SigningString()
-	if err != nil {
-		http.Error(w, "Can't generate JWT-token", http.StatusInternalServerError)
+		w.Write([]byte("Failed"))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	refreshCookie := http.Cookie{
-		Name:     "refresh",
-		Value:    refreshTokenString,
-		MaxAge:   int(time.Hour),
-		HttpOnly: true,
-	}
-	http.SetCookie(w, &accessCookie)
-	http.SetCookie(w, &refreshCookie)
+	http.SetCookie(w, cookies[0])
+	http.SetCookie(w, cookies[1])
 	w.WriteHeader(http.StatusAccepted)
 }
 
